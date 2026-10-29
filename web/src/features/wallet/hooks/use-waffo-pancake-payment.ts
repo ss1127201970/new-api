@@ -23,7 +23,7 @@ import { toast } from 'sonner'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { requestWaffoPancakePayment, isApiSuccess } from '../api'
-import { getPaymentErrorTranslation } from '../lib'
+import { getPaymentErrorTranslation, isValidTopupAmount } from '../lib'
 
 function getCheckoutUrl(data: unknown): string | null {
   if (!data || typeof data !== 'object') {
@@ -79,8 +79,12 @@ export function useWaffoPancakePayment() {
       setProcessing(true)
 
       try {
+        if (!isValidTopupAmount(topupAmount)) {
+          toast.error(i18next.t('Amount must be a whole number'))
+          return false
+        }
         const response = await requestWaffoPancakePayment({
-          amount: Math.floor(topupAmount),
+          amount: topupAmount,
         })
 
         if (isApiSuccess(response)) {

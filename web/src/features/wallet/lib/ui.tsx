@@ -105,6 +105,7 @@ export function getPaymentIcon(
           style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.ALIPAY] }}
         />
       )
+    case 'wechat':
     case PAYMENT_TYPES.WECHAT:
       return (
         <IconWeChat

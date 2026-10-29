@@ -17,13 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
+import {
+  createServerError,
+  getServerErrorMessage,
+} from '@/lib/server-error-message'
 
 import {
   calculateAmount,
+  calculateWeChatAmount,
   calculateStripeAmount,
   calculateWaffoAmount,
   calculateWaffoPancakeAmount,
@@ -36,6 +41,7 @@ import {
   isWaffoPayment,
   isWaffoPancakePayment,
   submitPaymentForm,
+  isValidTopupAmount,
 } from '../lib'
 import type { AmountRequest, AmountResponse } from '../types'
 
@@ -49,23 +55,36 @@ export interface PaymentAmountCalculators {
   regular: AmountCalculator
   stripe: AmountCalculator
   waffo: AmountCalculator
+  wechat?: (request: AmountRequest) => Promise<AmountResponse>
   waffoPancake: AmountCalculator
 }
 
 const defaultPaymentAmountCalculators: PaymentAmountCalculators = {
   regular: calculateAmount,
+  wechat: calculateWeChatAmount,
   stripe: calculateStripeAmount,
   waffo: calculateWaffoAmount,
   waffoPancake: calculateWaffoPancakeAmount,
+}
+
+export interface PaymentQuote {
+  amount: number
+  creditedCny: number | null
 }
 
 export async function requestPaymentAmount(
   topupAmount: number,
   paymentType: string,
   calculators: PaymentAmountCalculators = defaultPaymentAmountCalculators
-): Promise<number> {
+): Promise<PaymentQuote> {
+  if (!isValidTopupAmount(topupAmount)) {
+    return { amount: 0, creditedCny: null }
+  }
+
   let calculator = calculators.regular
-  if (isStripePayment(paymentType)) {
+  if (paymentType === 'wechat') {
+    calculator = calculators.wechat ?? calculateWeChatAmount
+  } else if (isStripePayment(paymentType)) {
     calculator = calculators.stripe
   } else if (isWaffoPayment(paymentType)) {
     calculator = calculators.waffo
@@ -74,34 +93,71 @@ export async function requestPaymentAmount(
   }
 
   const response = await calculator({ amount: topupAmount })
-  if (!isApiSuccess(response) || !response.data) {
-    return 0
+  if (!isApiSuccess(response)) {
+    throw createServerError(
+      {
+        ...response,
+        message:
+          response.message === 'error' && typeof response.data === 'string'
+            ? response.data
+            : response.message,
+      },
+      i18next.t('Payment request failed')
+    )
   }
 
-  return Number.parseFloat(response.data)
+  const amount = Number(response.data)
+  const creditedCny =
+    response.credited_cny == null ? null : Number(response.credited_cny)
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    (creditedCny !== null &&
+      (!Number.isFinite(creditedCny) || creditedCny <= 0))
+  ) {
+    throw new Error(i18next.t('Payment request failed'))
+  }
+  return { amount, creditedCny }
 }
 
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
+  const [creditedCny, setCreditedCny] = useState<number | null>(null)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
+  const quoteSequence = useRef(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
-    async (topupAmount: number, paymentType: string) => {
+    async (
+      topupAmount: number,
+      paymentType: string,
+      intent: 'automatic' | 'payment' = 'automatic'
+    ) => {
+      const sequence = ++quoteSequence.current
+      setQuoteError(null)
       try {
         setCalculating(true)
-        const calculatedAmount = await requestPaymentAmount(
-          topupAmount,
-          paymentType
-        )
-        setAmount(calculatedAmount)
-        return calculatedAmount
-      } catch {
-        setAmount(0)
+        const quote = await requestPaymentAmount(topupAmount, paymentType)
+        if (sequence !== quoteSequence.current) return 0
+        setAmount(quote.amount)
+        setCreditedCny(quote.creditedCny)
+        return quote.amount
+      } catch (error) {
+        if (sequence === quoteSequence.current) {
+          setAmount(0)
+          setCreditedCny(null)
+          setQuoteError(
+            getServerErrorMessage(error, i18next.t('Payment request failed'))
+          )
+          if (intent === 'payment') {
+            handleServerError(error, i18next.t('Payment request failed'))
+          }
+        }
         return 0
       } finally {
-        setCalculating(false)
+        if (sequence === quoteSequence.current) setCalculating(false)
       }
     },
     []
@@ -114,7 +170,11 @@ export function usePayment() {
         setProcessing(true)
 
         const isStripe = isStripePayment(paymentType)
-        const amount = Math.floor(topupAmount)
+        if (!isValidTopupAmount(topupAmount)) {
+          toast.error(i18next.t('Amount must be a whole number'))
+          return false
+        }
+        const amount = topupAmount
 
         const response = isStripe
           ? await requestStripePayment({
@@ -161,6 +221,8 @@ export function usePayment() {
 
   return {
     amount,
+    creditedCny,
+    quoteError,
     calculating,
     processing,
     calculatePaymentAmount,

@@ -1,6 +1,12 @@
 package model
 
 import (
+	"github.com/glebarez/sqlite"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -350,6 +356,147 @@ func TestRechargeEpayEnforcesFinalWalletQuotaLimit(t *testing.T) {
 			}
 			assert.Equal(t, tc.wantQuota, getUserQuotaForPaymentGuardTest(t, user.Id))
 			assert.Equal(t, tc.wantStatus, getTopUpStatusForPaymentGuardTest(t, order.TradeNo))
+		})
+	}
+}
+
+// Optional external DSNs MUST name disposable, empty test databases.
+func TestWechatSettlementAndMigration(t *testing.T) {
+	tests := []struct {
+		name, dsn string
+		dialector gorm.Dialector
+		dbType    common.DatabaseType
+	}{
+		{name: "sqlite", dialector: sqlite.Open(":memory:"), dbType: common.DatabaseTypeSQLite},
+	}
+	if dsn := os.Getenv("WECHAT_TEST_MYSQL_DSN"); dsn != "" {
+		tests = append(tests, struct {
+			name, dsn string
+			dialector gorm.Dialector
+			dbType    common.DatabaseType
+		}{name: "mysql", dsn: dsn, dialector: mysql.Open(dsn), dbType: common.DatabaseTypeMySQL})
+	}
+	if dsn := os.Getenv("WECHAT_TEST_POSTGRES_DSN"); dsn != "" {
+		tests = append(tests, struct {
+			name, dsn string
+			dialector gorm.Dialector
+			dbType    common.DatabaseType
+		}{name: "postgres", dsn: dsn, dialector: postgres.Open(dsn), dbType: common.DatabaseTypePostgreSQL})
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			previousDB, previousLogDB := DB, LOG_DB
+			db, err := gorm.Open(tc.dialector, &gorm.Config{})
+			require.NoError(t, err)
+			DB, LOG_DB = db, db
+			var engineVersion string
+			if tc.name == "sqlite" {
+				require.NoError(t, db.Raw("SELECT sqlite_version()").Scan(&engineVersion).Error)
+			} else {
+				require.NoError(t, db.Raw("SELECT VERSION()").Scan(&engineVersion).Error)
+			}
+			t.Logf("database version: %s", engineVersion)
+			common.SetDatabaseTypes(tc.dbType, tc.dbType)
+			initCol()
+			connection, err := db.DB()
+			require.NoError(t, err)
+			if tc.name == "sqlite" {
+				connection.SetMaxOpenConns(1)
+			}
+			t.Cleanup(func() {
+				_ = connection.Close()
+				DB, LOG_DB = previousDB, previousLogDB
+				common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+				initCol()
+			})
+			// External DSNs explicitly designate disposable test databases.
+			require.NoError(t, db.Migrator().DropTable(&WechatTopUp{}, &TopUp{}, &Log{}, &User{}))
+			// Simulate rc47 schema and data first, then migrate the payment extension twice.
+			require.NoError(t, db.AutoMigrate(&User{}, &TopUp{}, &Log{}))
+			user := insertUserForPaymentGuardTest(t, 99001, 17)
+			legacy := createEpayTestOrder(t, user.Id, "WXLEGACY", PaymentProviderEpay, common.TopUpStatusPending)
+			for range 2 {
+				require.NoError(t, db.AutoMigrate(&WechatTopUp{}, &TopUp{}))
+			}
+			require.Equal(t, legacy.TradeNo, GetTopUpByTradeNo(legacy.TradeNo).TradeNo)
+			makeOrder := func(tradeNo string) *WechatTopUp {
+				order := &WechatTopUp{TradeNo: tradeNo, UserID: user.Id, AmountCents: 1234, CreditedQuota: 650001, Currency: "CNY", AppID: "wx-app", MchID: "merchant", ExpiresAt: time.Now().Unix() + 1800}
+				topUp := &TopUp{TradeNo: tradeNo, UserId: user.Id, Amount: 999, Money: 12.34, PaymentProvider: PaymentProviderWechat, PaymentMethod: PaymentProviderWechat, Status: common.TopUpStatusPending}
+				require.NoError(t, CreateWechatTopUp(topUp, order))
+				return order
+			}
+			makeOrder("WXVALID")
+			payment := WechatSettlement{TradeNo: "WXVALID", TransactionID: "transaction-1", AmountCents: 1234, Currency: "CNY", AppID: "wx-app", MchID: "merchant"}
+			for _, field := range []string{"amount", "currency", "appid", "mchid", "transaction"} {
+				t.Run(field, func(t *testing.T) {
+					invalid := payment
+					switch field {
+					case "amount":
+						invalid.AmountCents++
+					case "currency":
+						invalid.Currency = "USD"
+					case "appid":
+						invalid.AppID = "other"
+					case "mchid":
+						invalid.MchID = "other"
+					case "transaction":
+						invalid.TransactionID = ""
+					}
+					require.Error(t, CompleteWechatTopUp(invalid, ""))
+					assert.Equal(t, 17, getUserQuotaForPaymentGuardTest(t, user.Id))
+					assert.Equal(t, common.TopUpStatusPending, GetTopUpByTradeNo(payment.TradeNo).Status)
+				})
+			}
+			_, _, err = GetWechatTopUp("WXVALID", user.Id+1)
+			require.Error(t, err)
+			require.Error(t, ManualCompleteTopUp("WXVALID", ""))
+			// Two real database transactions race; repeat delivery then remains a no-op.
+			var wg sync.WaitGroup
+			errors := make(chan error, 2)
+			for range 2 {
+				wg.Go(func() { errors <- CompleteWechatTopUp(payment, "") })
+			}
+			wg.Wait()
+			close(errors)
+			for err := range errors {
+				require.NoError(t, err)
+			}
+			require.NoError(t, CompleteWechatTopUp(payment, ""))
+			assert.Equal(t, 650018, getUserQuotaForPaymentGuardTest(t, user.Id))
+			payment.AmountCents++
+			require.Error(t, CompleteWechatTopUp(payment, ""))
+			payment.AmountCents--
+			makeOrder("WXDUPTRANSACTION")
+			payment.TradeNo = "WXDUPTRANSACTION"
+			require.Error(t, CompleteWechatTopUp(payment, ""))
+			assert.Equal(t, common.TopUpStatusPending, GetTopUpByTradeNo(payment.TradeNo).Status)
+			assert.Equal(t, 650018, getUserQuotaForPaymentGuardTest(t, user.Id))
+			// A provider success arriving after local close must still be credited.
+			payment.TransactionID = "late-transaction"
+			require.NoError(t, MarkWechatClosed(payment.TradeNo))
+			require.NoError(t, CompleteWechatTopUp(payment, ""))
+			assert.Equal(t, 1300019, getUserQuotaForPaymentGuardTest(t, user.Id))
+			makeOrder("WXPROVIDER")
+			require.NoError(t, db.Model(&TopUp{}).Where("trade_no = ?", "WXPROVIDER").Update("payment_provider", PaymentProviderEpay).Error)
+			payment.TradeNo = "WXPROVIDER"
+			payment.TransactionID = "foreign"
+			require.Error(t, CompleteWechatTopUp(payment, ""))
+			// Capacity is rechecked atomically at settlement; failure rolls back both
+			// the status transition and unique transaction assignment.
+			makeOrder("WXCAPACITY")
+			require.NoError(t, db.Model(&User{}).Where("id = ?", user.Id).Update("quota", common.MaxWalletQuota).Error)
+			payment.TradeNo = "WXCAPACITY"
+			payment.TransactionID = "over-capacity"
+			require.ErrorIs(t, CompleteWechatTopUp(payment, ""), ErrTopUpQuotaLimitExceeded)
+			assert.Equal(t, common.TopUpStatusPending, GetTopUpByTradeNo(payment.TradeNo).Status)
+			var unchanged WechatTopUp
+			require.NoError(t, db.Where("trade_no = ?", payment.TradeNo).First(&unchanged).Error)
+			assert.Nil(t, unchanged.TransactionID)
+			// Fresh schema creation and repeated migration, including unique transaction IDs.
+			require.NoError(t, db.Migrator().DropTable(&WechatTopUp{}))
+			for range 2 {
+				require.NoError(t, db.AutoMigrate(&WechatTopUp{}))
+			}
 		})
 	}
 }

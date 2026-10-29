@@ -173,7 +173,7 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
     return DEFAULT_MIN_TOPUP
   }
 
-  if (topupInfo.enable_online_topup) {
+  if (topupInfo.enable_online_topup || topupInfo.enable_wechat_pay) {
     return topupInfo.min_topup
   }
 
@@ -216,4 +216,9 @@ export function mergePresetAmounts(
     value: amount,
     discount: discounts[amount] || 1.0,
   }))
+}
+
+/** Recharge endpoints accept positive integer base-unit amounts. */
+export function isValidTopupAmount(amount: number): boolean {
+  return Number.isSafeInteger(amount) && amount >= 1
 }

@@ -97,3 +97,18 @@ export function calculatePresetPricing(
     hasDiscount,
   }
 }
+
+/** Native WeChat payment and wallet face amounts always use CNY and whole cents. */
+export function formatCnyAmount(
+  amount: number | null | undefined,
+  locale?: Intl.LocalesArgument
+): string {
+  if (amount == null || !Number.isFinite(amount)) return '-'
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'CNY',
+    currencyDisplay: 'code',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}

@@ -2846,7 +2846,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高度なカスタムチャネルでは、プロトコル変換を行わない /v1/responses ルートにのみ適用されます。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For private deployments, format: https://fastgpt.run/api/openapi": "プライベートデプロイメントの場合、形式: https://fastgpt.run/api/openapi",
@@ -7358,6 +7358,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Scan this QR code with WeChat to pay. Your balance updates after payment is confirmed.": "WeChat でこの QR コードを読み取ってお支払いください。確認後に残高が更新されます。",
+    "WeChat payment QR code": "WeChat 支払い QR コード",
+    "Payment confirmed.": "お支払いが確認されました。",
+    "This payment code has expired or the order is closed. Check your order history before creating another payment.": "支払いコードの有効期限が切れたか、注文が終了しました。新たに支払う前に注文履歴をご確認ください。",
+    "Waiting for payment confirmation...": "お支払いの確認を待っています…",
+    "The payment code is unavailable. Check the order status before creating another payment.": "支払いコードを取得できません。再度支払う前に注文状況をご確認ください。",
+    "Valid until {{time}}": "有効期限：{{time}}",
+    "You can close this window and reopen the payment from Order History.": "この画面を閉じても、注文履歴から支払いを再開できます。",
+    "Check payment status": "支払い状況を確認",
+    "View payment code": "支払いコードを表示",
+    "Closed": "終了",
+    "Balance credit": "残高への入金額",
+    "Balance credit: {{amount}}": "残高への入金額：{{amount}}",
+    "WeChat Pay requires CNY display, Price = 1 and USDExchangeRate = 1": "WeChat PayにはCNY表示、Price = 1、USDExchangeRate = 1が必要です"
   }
 }

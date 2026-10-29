@@ -205,6 +205,12 @@ func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 	)
 }
 
+// WechatOrderQueryRateLimit permits wallet polling without consuming the
+// much stricter credential/payment-creation rate limit.
+func WechatOrderQueryRateLimit() func(c *gin.Context) {
+	return userRateLimitFactory(30, 60, "wechat-order-query")
+}
+
 func DownloadRateLimit() func(c *gin.Context) {
 	return rateLimitFactory(common.DownloadRateLimitNum, common.DownloadRateLimitDuration, "DW")
 }

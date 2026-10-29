@@ -2846,7 +2846,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高级自定义渠道仅对 /v1/responses 且不做协议转换的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For private deployments, format: https://fastgpt.run/api/openapi": "对于私有部署，格式为：https://fastgpt.run/api/openapi",
@@ -7358,6 +7358,20 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Scan this QR code with WeChat to pay. Your balance updates after payment is confirmed.": "使用微信扫描二维码付款，确认支付后余额会自动更新。",
+    "WeChat payment QR code": "微信支付二维码",
+    "Payment confirmed.": "支付已确认。",
+    "This payment code has expired or the order is closed. Check your order history before creating another payment.": "此支付二维码已过期或订单已关闭。请先查看订单记录，再创建新支付。",
+    "Waiting for payment confirmation...": "等待支付确认…",
+    "The payment code is unavailable. Check the order status before creating another payment.": "暂时无法获取支付二维码。请先检查订单状态，避免重复支付。",
+    "Valid until {{time}}": "有效期至 {{time}}",
+    "You can close this window and reopen the payment from Order History.": "可关闭此窗口，稍后从订单记录重新打开支付。",
+    "Check payment status": "检查支付状态",
+    "View payment code": "查看支付二维码",
+    "Closed": "已关闭",
+    "Balance credit": "到账余额",
+    "Balance credit: {{amount}}": "到账余额：{{amount}}",
+    "WeChat Pay requires CNY display, Price = 1 and USDExchangeRate = 1": "微信支付要求使用人民币显示，Price = 1 且 USDExchangeRate = 1"
   }
 }

@@ -34,7 +34,11 @@ export interface ApiResponse<T = unknown> {
  */
 export type TopupInfoResponse = ApiResponse<TopupInfo>
 export type RedemptionResponse = ApiResponse<number>
-export type AmountResponse = ApiResponse<string>
+export type AmountResponse = ApiResponse<string> & {
+  amount_cents?: number
+  credited_quota?: number
+  credited_cny?: string
+}
 export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
   url?: string
 }
@@ -124,6 +128,7 @@ export interface TopupInfo {
   enable_online_topup: boolean
   /** Whether Stripe topup is enabled */
   enable_stripe_topup: boolean
+  enable_wechat_pay?: boolean
   /** Available payment methods */
   pay_methods: PaymentMethod[]
   /** Minimum topup amount for online topup */
@@ -247,7 +252,7 @@ export interface UserWalletData {
 /**
  * Topup record status
  */
-export type TopupStatus = 'success' | 'pending' | 'expired'
+export type TopupStatus = 'success' | 'pending' | 'expired' | 'closed'
 
 /**
  * Topup billing record
@@ -265,6 +270,8 @@ export interface TopupRecord {
   trade_no: string
   /** Payment method type */
   payment_method: string
+  payment_provider?: string
+  credited_quota?: number
   /** Creation timestamp */
   create_time: number
   /** Completion timestamp */
@@ -286,4 +293,14 @@ export interface BillingHistoryResponse {
  */
 export interface CompleteOrderRequest {
   trade_no: string
+}
+
+export interface WeChatOrder {
+  trade_no: string
+  code_url: string
+  status: 'pending' | 'success' | 'closed'
+  amount_cents: number
+  expires_at: number
+  credited_quota?: number
+  credited_cny?: string
 }

@@ -39,6 +39,8 @@ import { cn } from '@/lib/utils'
 
 import {
   formatCurrency,
+  formatCnyAmount,
+  isValidWeChatAmount,
   getDiscountLabel,
   getPaymentIcon,
   getMinTopupAmount,
@@ -54,6 +56,7 @@ import type {
 import { CreemProductsSection } from './creem-products-section'
 
 interface RechargeFormCardProps {
+  creditedCny?: number | null
   topupInfo: TopupInfo | null
   presetAmounts: PresetAmount[]
   selectedPreset: number | null
@@ -85,6 +88,7 @@ interface RechargeFormCardProps {
 
 export function RechargeFormCard({
   topupInfo,
+  creditedCny,
   presetAmounts,
   selectedPreset,
   onSelectPreset,
@@ -124,13 +128,14 @@ export function RechargeFormCard({
 
   const handleAmountChange = (value: string) => {
     setLocalAmount(value)
-    const numValue = Number.parseInt(value) || 0
+    const numValue = Number(value) || 0
     if (numValue >= 0) {
       onTopupAmountChange(numValue)
     }
   }
 
   const hasConfigurableTopup =
+    topupInfo?.enable_wechat_pay ||
     topupInfo?.enable_online_topup ||
     topupInfo?.enable_stripe_topup ||
     enableWaffoTopup ||
@@ -302,6 +307,7 @@ export function RechargeFormCard({
                   <Input
                     id='topup-amount'
                     type='number'
+                    step='1'
                     value={localAmount}
                     onChange={(e) => handleAmountChange(e.target.value)}
                     min={minTopup}
@@ -321,6 +327,13 @@ export function RechargeFormCard({
                     )}
                   </div>
                 </div>
+                {creditedCny != null && !calculating && (
+                  <p className='text-muted-foreground text-sm'>
+                    {t('Balance credit: {{amount}}', {
+                      amount: formatCnyAmount(creditedCny),
+                    })}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2.5 sm:space-y-3'>
@@ -330,19 +343,28 @@ export function RechargeFormCard({
                 {hasStandardPaymentMethods ? (
                   <div className='grid grid-cols-2 gap-1.5 sm:gap-3 lg:grid-cols-3'>
                     {topupInfo?.pay_methods?.map((method) => {
+                      const methodName =
+                        method.type === 'wechat' ? t('WeChat Pay') : method.name
                       const minTopup = Math.max(
                         method.min_topup || 0,
                         getMinTopupAmount(topupInfo)
                       )
-                      const disabled = minTopup > topupAmount
-                      const disabledReason = disabled
-                        ? t('Minimum topup amount: {{amount}}', {
-                            amount: minTopup,
-                          })
-                        : undefined
-                      const disabledLabel = disabled
-                        ? `${t('Minimum:')} ${minTopup}`
-                        : undefined
+                      const invalidInteger =
+                        method.type === 'wechat' &&
+                        !isValidWeChatAmount(topupAmount)
+                      const disabled = minTopup > topupAmount || invalidInteger
+                      let disabledReason: string | undefined
+                      if (invalidInteger) {
+                        disabledReason = t('Amount must be a whole number')
+                      } else if (disabled) {
+                        disabledReason = t('Minimum topup amount: {{amount}}', {
+                          amount: minTopup,
+                        })
+                      }
+                      const disabledLabel = invalidInteger
+                        ? t('Amount must be a whole number')
+                        : minTopup > topupAmount &&
+                          `${t('Minimum:')} ${minTopup}`
 
                       const button = (
                         <Button
@@ -353,8 +375,8 @@ export function RechargeFormCard({
                           title={disabledReason}
                           aria-label={
                             disabledReason
-                              ? `${method.name}. ${disabledReason}`
-                              : method.name
+                              ? `${methodName}. ${disabledReason}`
+                              : methodName
                           }
                           className='min-h-14 min-w-0 justify-start gap-2 rounded-lg px-3 py-2 text-left'
                         >
@@ -365,12 +387,12 @@ export function RechargeFormCard({
                               method.type,
                               'h-4 w-4',
                               method.icon,
-                              method.name
+                              methodName
                             )
                           )}
                           <span className='flex min-w-0 flex-col items-start gap-0.5'>
                             <span className='max-w-full truncate'>
-                              {method.name}
+                              {methodName}
                             </span>
                             {disabledLabel && (
                               <span className='text-muted-foreground max-w-full truncate text-[11px] leading-4 font-normal'>

@@ -350,6 +350,11 @@ func InitResources() error {
 		return err
 	}
 
+	if err := service.InitWechatPay(); err != nil {
+		common.SysError(common.LogText("WeChat payment initialization failed; retry scheduled"))
+		go service.RetryWechatPayInitialization()
+	}
+
 	perfmetrics.Init()
 
 	// 启动系统监控

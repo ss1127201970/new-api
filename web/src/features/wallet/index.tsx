@@ -29,6 +29,7 @@ import { BillingHistoryDialog } from './components/dialogs/billing-history-dialo
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { WeChatPaymentDialog } from './components/dialogs/wechat-payment-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
@@ -42,6 +43,7 @@ import {
   useWaffoPayment,
   useWaffoPancakePayment,
 } from './hooks'
+import { useWeChatPayment } from './hooks/use-wechat-payment'
 import {
   getDefaultPaymentType,
   getMinTopupAmount,
@@ -84,6 +86,8 @@ export function Wallet(props: WalletProps) {
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
 
+  const defaultPaymentType = getDefaultPaymentType(topupInfo)
+
   // Calculate effective exchange rate - when display type is USD, use rate of 1
   const effectiveUsdExchangeRate = useMemo(() => {
     return currency?.quotaDisplayType === 'USD'
@@ -92,6 +96,7 @@ export function Wallet(props: WalletProps) {
   }, [currency?.quotaDisplayType, currency?.usdExchangeRate])
   const {
     amount: paymentAmount,
+    creditedCny,
     calculating,
     processing,
     calculatePaymentAmount,
@@ -125,6 +130,8 @@ export function Wallet(props: WalletProps) {
     }
   }, [])
 
+  const wechatPayment = useWeChatPayment(fetchUser)
+
   useEffect(() => {
     fetchUser()
   }, [fetchUser])
@@ -145,15 +152,14 @@ export function Wallet(props: WalletProps) {
       setTopupAmount(minTopup)
 
       // Calculate initial payment amount with default payment type
-      const defaultPaymentType = getDefaultPaymentType(topupInfo)
       calculatePaymentAmount(minTopup, defaultPaymentType)
     }
-  }, [topupInfo, calculatePaymentAmount])
+  }, [topupInfo, calculatePaymentAmount, defaultPaymentType])
 
   // Get current payment type (selected or default)
   const getCurrentPaymentType = useCallback(() => {
-    return selectedPaymentMethod?.type || getDefaultPaymentType(topupInfo)
-  }, [selectedPaymentMethod, topupInfo])
+    return selectedPaymentMethod?.type || defaultPaymentType
+  }, [selectedPaymentMethod, defaultPaymentType])
 
   // Handle preset selection
   const handleSelectPreset = (preset: PresetAmount) => {
@@ -177,14 +183,17 @@ export function Wallet(props: WalletProps) {
 
     try {
       // Validate minimum topup
-      const minTopup = getMinTopupAmount(topupInfo)
+      const minTopup =
+        method.type === 'wechat'
+          ? method.min_topup || 1
+          : getMinTopupAmount(topupInfo)
       if (topupAmount < minTopup) {
         return
       }
 
       // Calculate payment amount and show confirmation dialog
-      await calculatePaymentAmount(topupAmount, method.type)
-      setConfirmDialogOpen(true)
+      const quote = await calculatePaymentAmount(topupAmount, method.type)
+      if (quote > 0) setConfirmDialogOpen(true)
     } finally {
       setPaymentLoading(null)
     }
@@ -193,6 +202,12 @@ export function Wallet(props: WalletProps) {
   // Handle payment confirmation
   const handlePaymentConfirm = async () => {
     if (!selectedPaymentMethod) return
+
+    if (selectedPaymentMethod.type === 'wechat') {
+      const success = await wechatPayment.processPayment(topupAmount)
+      if (success) setConfirmDialogOpen(false)
+      return
+    }
 
     const success = await dispatchSelectedPayment(
       selectedPaymentMethod,
@@ -301,6 +316,7 @@ export function Wallet(props: WalletProps) {
                 <RechargeFormCard
                   topupInfo={topupInfo}
                   presetAmounts={presetAmounts}
+                  creditedCny={creditedCny}
                   selectedPreset={selectedPreset}
                   onSelectPreset={handleSelectPreset}
                   topupAmount={topupAmount}
@@ -360,8 +376,18 @@ export function Wallet(props: WalletProps) {
         paymentAmount={paymentAmount}
         paymentMethod={selectedPaymentMethod}
         calculating={calculating}
-        processing={processing || waffoProcessing || pancakeProcessing}
-        discountRate={getDiscountRate()}
+        processing={
+          processing ||
+          waffoProcessing ||
+          pancakeProcessing ||
+          wechatPayment.processing
+        }
+        creditedCny={creditedCny}
+        discountRate={
+          selectedPaymentMethod?.type === 'wechat'
+            ? paymentAmount / topupAmount
+            : getDiscountRate()
+        }
         usdExchangeRate={effectiveUsdExchangeRate}
       />
 
@@ -373,9 +399,26 @@ export function Wallet(props: WalletProps) {
         transferring={transferring}
       />
 
-      <BillingHistoryDialog
-        open={billingDialogOpen}
-        onOpenChange={setBillingDialogOpen}
+      {billingDialogOpen && (
+        <BillingHistoryDialog
+          open={billingDialogOpen}
+          onOpenChange={setBillingDialogOpen}
+          onResumeWeChatOrder={(tradeNo) => {
+            setBillingDialogOpen(false)
+            wechatPayment.resumeOrder(tradeNo)
+          }}
+        />
+      )}
+
+      <WeChatPaymentDialog
+        open={wechatPayment.open}
+        onOpenChange={wechatPayment.setOpen}
+        order={wechatPayment.order}
+        loading={wechatPayment.loading}
+        error={wechatPayment.error}
+        onRefresh={() => {
+          void wechatPayment.refresh()
+        }}
       />
 
       <CreemConfirmDialog

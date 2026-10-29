@@ -195,6 +195,17 @@ export function useTopupInfo() {
         ),
       }
 
+      if (processedData.enable_wechat_pay) {
+        processedData.pay_methods = processedData.pay_methods.filter(
+          (method) => method.type !== 'wechat'
+        )
+        processedData.pay_methods.push({
+          name: 'WeChat Pay',
+          type: 'wechat',
+          min_topup: Math.max(processedData.min_topup, 1),
+        })
+      }
+
       setTopupInfo(processedData)
 
       if (processedData.amount_options.length > 0) {

@@ -17,13 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { handleServerError } from '@/lib/handle-server-error'
 
 import {
   calculateAmount,
+  calculateWeChatAmount,
   calculateStripeAmount,
   calculateWaffoAmount,
   calculateWaffoPancakeAmount,
@@ -36,6 +37,7 @@ import {
   isWaffoPayment,
   isWaffoPancakePayment,
   submitPaymentForm,
+  isValidWeChatAmount,
 } from '../lib'
 import type { AmountRequest, AmountResponse } from '../types'
 
@@ -49,11 +51,13 @@ export interface PaymentAmountCalculators {
   regular: AmountCalculator
   stripe: AmountCalculator
   waffo: AmountCalculator
+  wechat?: (request: AmountRequest) => Promise<AmountResponse>
   waffoPancake: AmountCalculator
 }
 
 const defaultPaymentAmountCalculators: PaymentAmountCalculators = {
   regular: calculateAmount,
+  wechat: calculateWeChatAmount,
   stripe: calculateStripeAmount,
   waffo: calculateWaffoAmount,
   waffoPancake: calculateWaffoPancakeAmount,
@@ -65,7 +69,15 @@ export async function requestPaymentAmount(
   calculators: PaymentAmountCalculators = defaultPaymentAmountCalculators
 ): Promise<number> {
   let calculator = calculators.regular
-  if (isStripePayment(paymentType)) {
+  if (paymentType === 'wechat') {
+    if (!isValidWeChatAmount(topupAmount)) return 0
+    const response = await (calculators.wechat ?? calculateWeChatAmount)({
+      amount: topupAmount,
+    })
+    return isApiSuccess(response) && response.data
+      ? Number.parseFloat(response.data)
+      : 0
+  } else if (isStripePayment(paymentType)) {
     calculator = calculators.stripe
   } else if (isWaffoPayment(paymentType)) {
     calculator = calculators.waffo
@@ -83,25 +95,51 @@ export async function requestPaymentAmount(
 
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
+  const [creditedCny, setCreditedCny] = useState<number | null>(null)
+  const quoteSequence = useRef(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
     async (topupAmount: number, paymentType: string) => {
+      const sequence = ++quoteSequence.current
       try {
         setCalculating(true)
-        const calculatedAmount = await requestPaymentAmount(
-          topupAmount,
-          paymentType
-        )
+        let calculatedAmount = 0
+        let credit: number | null = null
+        if (paymentType === 'wechat') {
+          if (isValidWeChatAmount(topupAmount)) {
+            const response = await calculateWeChatAmount({
+              amount: topupAmount,
+            })
+            if (
+              isApiSuccess(response) &&
+              response.data &&
+              response.credited_cny
+            ) {
+              calculatedAmount = Number.parseFloat(response.data)
+              credit = Number.parseFloat(response.credited_cny)
+            }
+          }
+        } else {
+          calculatedAmount = await requestPaymentAmount(
+            topupAmount,
+            paymentType
+          )
+        }
+        if (sequence !== quoteSequence.current) return 0
         setAmount(calculatedAmount)
+        setCreditedCny(credit)
         return calculatedAmount
       } catch {
-        setAmount(0)
+        if (sequence === quoteSequence.current) {
+          setAmount(0)
+          setCreditedCny(null)
+        }
         return 0
       } finally {
-        setCalculating(false)
+        if (sequence === quoteSequence.current) setCalculating(false)
       }
     },
     []
@@ -161,6 +199,7 @@ export function usePayment() {
 
   return {
     amount,
+    creditedCny,
     calculating,
     processing,
     calculatePaymentAmount,

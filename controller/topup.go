@@ -98,6 +98,7 @@ func GetTopUpInfo(c *gin.Context) {
 	}
 
 	data := gin.H{
+		"enable_wechat_pay":                isWechatTopUpEnabled(),
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
@@ -546,7 +547,12 @@ func GetUserTopUps(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(topups)
+	records, err := model.WithWechatTopUpCredits(topups)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetItems(records)
 	common.ApiSuccess(c, pageInfo)
 }
 
@@ -571,7 +577,12 @@ func GetAllTopUps(c *gin.Context) {
 	}
 
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(topups)
+	records, err := model.WithWechatTopUpCredits(topups)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetItems(records)
 	common.ApiSuccess(c, pageInfo)
 }
 

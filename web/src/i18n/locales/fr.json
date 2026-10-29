@@ -2846,7 +2846,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Projets liés",
     "footer.defaultCopyright": "Tous droits réservés.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
+    "footer.newapi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Pour les canaux personnalisés avancés, ceci ne s’applique qu’aux routes /v1/responses sans conversion de protocole.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Pour les canaux ajoutés après le 10 mai 2025, pas besoin de supprimer \".\" des noms de modèles lors du déploiement",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Pour les déploiements privés, format : https://fastgpt.run/api/openapi",
@@ -7358,6 +7358,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Scan this QR code with WeChat to pay. Your balance updates after payment is confirmed.": "Scannez ce QR code avec WeChat pour payer. Votre solde sera actualisé après confirmation.",
+    "WeChat payment QR code": "QR code de paiement WeChat",
+    "Payment confirmed.": "Paiement confirmé.",
+    "This payment code has expired or the order is closed. Check your order history before creating another payment.": "Ce code a expiré ou la commande est fermée. Consultez votre historique avant de créer un autre paiement.",
+    "Waiting for payment confirmation...": "En attente de confirmation du paiement…",
+    "The payment code is unavailable. Check the order status before creating another payment.": "Le code de paiement est indisponible. Vérifiez la commande avant de créer un autre paiement.",
+    "Valid until {{time}}": "Valable jusqu’à {{time}}",
+    "You can close this window and reopen the payment from Order History.": "Vous pouvez fermer cette fenêtre et rouvrir le paiement depuis l’historique des commandes.",
+    "Check payment status": "Vérifier le paiement",
+    "View payment code": "Voir le code de paiement",
+    "Closed": "Fermée",
+    "Balance credit": "Solde crédité",
+    "Balance credit: {{amount}}": "Solde crédité : {{amount}}",
+    "WeChat Pay requires CNY display, Price = 1 and USDExchangeRate = 1": "WeChat Pay exige un affichage en CNY, Price = 1 et USDExchangeRate = 1"
   }
 }

@@ -2846,7 +2846,7 @@
     "footer.columns.related.links.oneApi": "Один API",
     "footer.columns.related.title": "Связанные проекты",
     "footer.defaultCopyright": "Все права защищены.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
+    "footer.newapi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "Для расширенных пользовательских каналов это действует только для маршрутов /v1/responses без преобразования протокола.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Для каналов, добавленных после 10 мая 2025 г., не нужно удалять \".\" из имён моделей при развёртывании",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Для частных развертываний, формат: https://fastgpt.run/api/openapi",
@@ -7358,6 +7358,20 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Scan this QR code with WeChat to pay. Your balance updates after payment is confirmed.": "Отсканируйте QR-код в WeChat для оплаты. Баланс обновится после подтверждения.",
+    "WeChat payment QR code": "QR-код для оплаты WeChat",
+    "Payment confirmed.": "Оплата подтверждена.",
+    "This payment code has expired or the order is closed. Check your order history before creating another payment.": "Код истёк или заказ закрыт. Проверьте историю заказов перед новой оплатой.",
+    "Waiting for payment confirmation...": "Ожидание подтверждения оплаты…",
+    "The payment code is unavailable. Check the order status before creating another payment.": "Код оплаты недоступен. Проверьте статус заказа перед новой оплатой.",
+    "Valid until {{time}}": "Действителен до {{time}}",
+    "You can close this window and reopen the payment from Order History.": "Можно закрыть окно и открыть оплату снова из истории заказов.",
+    "Check payment status": "Проверить оплату",
+    "View payment code": "Показать код оплаты",
+    "Closed": "Закрыт",
+    "Balance credit": "Пополнение баланса",
+    "Balance credit: {{amount}}": "На баланс: {{amount}}",
+    "WeChat Pay requires CNY display, Price = 1 and USDExchangeRate = 1": "Для WeChat Pay требуется отображение в CNY, Price = 1 и USDExchangeRate = 1"
   }
 }

@@ -478,6 +478,10 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 			return common.NewMessage("Order is not pending payment and cannot be completed")
 		}
 
+		if topUp.PaymentProvider == PaymentProviderWechat {
+			return common.NewMessage("Order is not pending payment and cannot be completed")
+		}
+
 		// 计算应充值额度：
 		// - Stripe 订单：Money 代表经分组倍率换算后的美元数量，直接 * QuotaPerUnit
 		// - 其他订单（如易支付）：Amount 为美元数量，* QuotaPerUnit

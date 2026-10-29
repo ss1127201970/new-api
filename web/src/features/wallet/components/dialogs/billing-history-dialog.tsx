@@ -45,8 +45,9 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { formatCurrencyFromUSD } from '@/lib/currency'
+import { formatQuotaWithCurrency, formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { useBillingHistory } from '../../hooks/use-billing-history'
 import {
@@ -58,13 +59,16 @@ import {
 interface BillingHistoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onResumeWeChatOrder?: (tradeNo: string) => void
 }
 
 export function BillingHistoryDialog({
   open,
   onOpenChange,
+  onResumeWeChatOrder,
 }: BillingHistoryDialogProps) {
   const { t } = useTranslation()
+  const currentUserId = useAuthStore((state) => state.auth.user?.id)
   const {
     records,
     total,
@@ -248,11 +252,18 @@ export function BillingHistoryDialog({
                             {t('Amount')}
                           </Label>
                           <div className='text-sm font-semibold'>
-                            {formatCurrencyFromUSD(record.amount, {
-                              digitsLarge: 2,
-                              digitsSmall: 2,
-                              abbreviate: false,
-                            })}
+                            {record.payment_method === 'wechat' &&
+                            record.credited_quota != null
+                              ? formatQuotaWithCurrency(record.credited_quota, {
+                                  digitsLarge: 2,
+                                  digitsSmall: 2,
+                                  abbreviate: false,
+                                })
+                              : formatCurrencyFromUSD(record.amount, {
+                                  digitsLarge: 2,
+                                  digitsSmall: 2,
+                                  abbreviate: false,
+                                })}
                           </div>
                         </div>
                         <div className='space-y-1'>
@@ -260,24 +271,45 @@ export function BillingHistoryDialog({
                             {t('Payment')}
                           </Label>
                           <div className='text-sm font-semibold text-red-600'>
-                            {formatNumber(record.money)}
+                            {record.payment_method === 'wechat'
+                              ? `CNY ${formatNumber(record.money)}`
+                              : formatNumber(record.money)}
                           </div>
                         </div>
                       </div>
 
+                      {(!isAdmin || record.user_id === currentUserId) &&
+                        record.payment_method === 'wechat' &&
+                        record.status === 'pending' &&
+                        onResumeWeChatOrder && (
+                          <div className='mt-4 flex justify-end'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() =>
+                                onResumeWeChatOrder(record.trade_no)
+                              }
+                            >
+                              {t('View payment code')}
+                            </Button>
+                          </div>
+                        )}
+
                       {/* Admin Actions */}
-                      {isAdmin && record.status === 'pending' && (
-                        <div className='mt-4 flex justify-end'>
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setConfirmTradeNo(record.trade_no)}
-                            disabled={completing}
-                          >
-                            {t('Complete Order')}
-                          </Button>
-                        </div>
-                      )}
+                      {isAdmin &&
+                        record.payment_method !== 'wechat' &&
+                        record.status === 'pending' && (
+                          <div className='mt-4 flex justify-end'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => setConfirmTradeNo(record.trade_no)}
+                              disabled={completing}
+                            >
+                              {t('Complete Order')}
+                            </Button>
+                          </div>
+                        )}
                     </div>
                   )
                 })}

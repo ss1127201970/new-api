@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 import type {
+  WeChatOrder,
   RedemptionRequest,
   PaymentRequest,
   AmountRequest,
@@ -244,5 +245,28 @@ export async function completeOrder(
   request: CompleteOrderRequest
 ): Promise<ApiResponse> {
   const res = await api.post('/api/user/topup/complete', request)
+  return res.data
+}
+
+export async function calculateWeChatAmount(
+  request: AmountRequest
+): Promise<AmountResponse> {
+  const res = await api.post('/api/user/wechat/amount', request)
+  return res.data
+}
+
+export async function requestWeChatPayment(
+  request: AmountRequest
+): Promise<ApiResponse<WeChatOrder>> {
+  const res = await api.post('/api/user/wechat/pay', request)
+  return res.data
+}
+
+export async function getWeChatOrder(
+  tradeNo: string
+): Promise<ApiResponse<WeChatOrder>> {
+  const res = await api.get(
+    `/api/user/wechat/order/${encodeURIComponent(tradeNo)}`
+  )
   return res.data
 }
